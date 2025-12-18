@@ -14,9 +14,9 @@
     .scroll-y { overflow-y:auto; flex:1; padding:15px; }
     .header-p { padding:15px; border-bottom:1px solid #22324a; background:rgba(0,0,0,0.2); }
     
-    h1 { margin:0 0 10px 0; font-size:18px; color:var(--accent); }
+    h1 { margin:0 0 5px 0; font-size:18px; color:var(--accent); }
     input, select, button { width:100%; background:#0e1522; border:1px solid #22324a; color:var(--text); border-radius:6px; padding:10px; margin-bottom:10px; outline:none; }
-    button { cursor:pointer; font-weight:600; transition: 0.2s; border:none; background:#1a273b; }
+    button { cursor:pointer; font-weight:600; transition: 0.2s; border:none; background:#1a273b; color: var(--text); }
     button:hover { background: #22324a; }
     .primary { background: var(--accent); color:#0b0f14; }
     .success { background: var(--ok); color:#0b0f14; }
@@ -31,18 +31,22 @@
     .warn-box { background:rgba(255,211,107,0.1); border:1px solid var(--warn); color:var(--warn); padding:10px; border-radius:6px; font-size:11px; margin-bottom:15px; }
     
     .tabs { display:flex; gap:5px; margin-bottom:15px; }
-    .tab { flex:1; padding:8px; text-align:center; background:#0e1522; border-radius:6px; cursor:pointer; color:var(--muted); font-size:12px; }
-    .tab.active { background:var(--accent); color:#000; font-weight:bold; }
+    .tab { flex:1; padding:8px; text-align:center; background:#0e1522; border-radius:6px; cursor:pointer; color:var(--muted); font-size:12px; border: 1px solid #22324a; }
+    .tab.active { background:var(--accent); color:#000; font-weight:bold; border: none; }
+    .badge { background: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; color: var(--accent); margin-right: 5px; }
   </style>
 </head>
 <body>
 
 <div class="app-container">
   <aside class="card">
-    <div class="header-p"><h1>Ayarlar</h1></div>
+    <div class="header-p">
+        <h1>Xstream Pro</h1>
+        <div style="font-size: 11px; color: var(--muted);">v2.0 - FileSystem Edition</div>
+    </div>
     <div class="scroll-y">
       <div class="warn-box">
-        <strong>İpucu:</strong> İndirme başlamazsa tarayıcı eklentilerinden <b>CORS Unblock</b>'u aktif edin.
+        <strong>ÖNEMLİ:</strong> Bağlantı hatası alırsanız tarayıcınıza <b>CORS Unblock</b> eklentisini kurun ve aktif edin.
       </div>
       <input id="host" placeholder="http://iptv-adresi.com:8080" />
       <input id="user" placeholder="Kullanıcı Adı" />
@@ -51,7 +55,10 @@
       
       <hr style="border:0; border-top:1px solid #22324a; margin:20px 0;">
       
-      <h3 style="font-size:14px; margin-bottom:10px;">İndirme Kuyruğu</h3>
+      <h3 style="font-size:14px; margin-bottom:10px; display: flex; justify-content: space-between;">
+        <span>İndirme Kuyruğu</span>
+        <span id="qCount" style="color: var(--accent);">0</span>
+      </h3>
       <button id="btnRunNow" class="success">Klasör Seç & Kuyruğu Başlat</button>
       <div id="queueList"></div>
     </div>
@@ -60,16 +67,17 @@
   <main class="card">
     <div class="header-p">
         <div class="tabs">
-            <div class="tab active" onclick="setMode('vod')">Filmler</div>
-            <div class="tab" onclick="setMode('series')">Diziler</div>
+            <div id="tabVod" class="tab active" onclick="setMode('vod')">Filmler (VOD)</div>
+            <div id="tabSeries" class="tab" onclick="setMode('series')">Diziler</div>
+            <div id="tabEps" class="tab" style="display:none;" onclick="setMode('episodes')">Bölümler</div>
         </div>
         <div style="display:grid; grid-template-columns: 1fr 200px; gap:10px;">
-            <input id="search" placeholder="İsimle ara..." />
+            <input id="search" placeholder="İçerik ara..." />
             <select id="category"><option value="">Kategori Seçin</option></select>
         </div>
     </div>
     <div class="scroll-y" id="contentList">
-        <div style="text-align:center; padding:50px; color:var(--muted);">Lütfen önce sunucuya bağlanın.</div>
+        <div style="text-align:center; padding:50px; color:var(--muted);">Lütfen sol panelden sunucu bilgilerini girip "Bağlan" butonuna basın.</div>
     </div>
   </main>
 </div>
@@ -79,74 +87,112 @@ const state = {
     mode: 'vod', 
     vods: [], series: [], episodes: [], 
     catsVod: [], catsSer: [],
-    queue: [], running: false 
+    queue: [], running: false,
+    activeSeriesName: ''
 };
 
 const $ = id => document.getElementById(id);
 
-// --- API İŞLEMLERİ ---
+// --- API FONKSİYONU ---
 async function api(action, params = "") {
     const host = $('host').value.replace(/\/+$/, "");
     const url = `${host}/player_api.php?username=${$('user').value}&password=${$('pass').value}&action=${action}${params}`;
     const res = await fetch(url);
+    if (!res.ok) throw new Error("Ağ hatası");
     return res.json();
 }
 
+// --- BAĞLANTI ---
 $('btnConnect').onclick = async () => {
     try {
-        $('btnConnect').innerText = "Yükleniyor...";
+        const originalText = $('btnConnect').innerText;
+        $('btnConnect').innerText = "Bağlanıyor...";
+        
         const [cv, v, cs, s] = await Promise.all([
             api('get_vod_categories'), api('get_vod_streams'),
             api('get_series_categories'), api('get_series')
         ]);
-        state.catsVod = cv; state.vods = v;
-        state.catsSer = cs; state.series = s;
+        
+        state.catsVod = cv || []; state.vods = v || [];
+        state.catsSer = cs || []; state.series = s || [];
+        
         updateCategories();
         renderList();
-        $('btnConnect').innerText = "Bağlantı Başarılı";
-        setTimeout(() => $('btnConnect').innerText = "Tekrar Bağlan", 2000);
+        $('btnConnect').innerText = "Bağlantı Başarılı!";
+        setTimeout(() => $('btnConnect').innerText = originalText, 2000);
     } catch (e) {
         alert("Bağlantı hatası! Bilgileri ve CORS eklentisini kontrol edin.");
-        $('btnConnect').innerText = "Hata Oluştu";
+        $('btnConnect').innerText = "Hata!";
     }
 };
 
-// --- LİSTELEME ---
+// --- MOD & KATEGORİ YÖNETİMİ ---
 function setMode(m) {
     state.mode = m;
-    document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', (i===0 && m==='vod') || (i===1 && m==='series')));
+    $('tabVod').classList.toggle('active', m === 'vod');
+    $('tabSeries').classList.toggle('active', m === 'series');
+    $('tabEps').classList.toggle('active', m === 'episodes');
+    
+    if (m !== 'episodes') $('tabEps').style.display = 'none';
+    
     updateCategories();
     renderList();
 }
 
 function updateCategories() {
-    const cats = state.mode === 'vod' ? state.catsVod : state.catsSer;
-    $('category').innerHTML = '<option value="">Tüm Kategoriler</option>' + 
-        cats.map(c => `<option value="${c.category_id}">${c.category_name}</option>`).join('');
+    const cats = state.mode === 'vod' ? state.catsVod : (state.mode === 'series' ? state.catsSer : []);
+    if (state.mode === 'episodes') {
+        $('category').innerHTML = `<option value="">${state.activeSeriesName}</option>`;
+    } else {
+        $('category').innerHTML = '<option value="">Tüm Kategoriler</option>' + 
+            cats.map(c => `<option value="${c.category_id}">${c.category_name}</option>`).join('');
+    }
 }
 
+// --- LİSTELEME ---
 function renderList() {
     const term = $('search').value.toLowerCase();
     const cat = $('category').value;
-    const data = state.mode === 'vod' ? state.vods : state.series;
+    let data = [];
+    
+    if (state.mode === 'vod') data = state.vods;
+    else if (state.mode === 'series') data = state.series;
+    else data = state.episodes;
     
     const filtered = data.filter(item => {
-        const name = (item.name || "").toLowerCase();
-        return name.includes(term) && (cat === "" || item.category_id === cat);
+        const name = (item.name || item.title || "").toLowerCase();
+        const matchSearch = name.includes(term);
+        const matchCat = (cat === "" || item.category_id === cat);
+        return matchSearch && matchCat;
     });
 
-    $('contentList').innerHTML = filtered.slice(0, 300).map(item => `
-        <div class="item">
-            <div>
-                <strong>${item.name}</strong>
-                <div style="font-size:10px; color:var(--muted)">${state.mode.toUpperCase()}</div>
+    $('contentList').innerHTML = filtered.slice(0, 500).map(item => {
+        const itemName = item.name || item.title;
+        const itemId = item.stream_id || item.series_id || item.id;
+        
+        let actionBtn = "";
+        if (state.mode === 'vod') {
+            actionBtn = `<button onclick="addVod('${itemId}', '${itemName.replace(/'/g,"")}', '${item.container_extension}')" class="primary" style="width:auto; padding:5px 12px;">+</button>`;
+        } else if (state.mode === 'series') {
+            actionBtn = `<button onclick="loadEpisodes('${itemId}', '${itemName.replace(/'/g,"")}')" class="primary" style="width:auto; padding:5px 12px;">Bölümler</button>`;
+        } else {
+            actionBtn = `<button onclick="addEpisode('${itemId}', '${itemName.replace(/'/g,"")}', '${item.container_extension}', '${item.season}', '${item.episode_num}')" class="primary" style="width:auto; padding:5px 12px;">+</button>`;
+        }
+
+        return `
+            <div class="item">
+                <div>
+                    <span class="badge">${state.mode.toUpperCase()}</span>
+                    <strong>${itemName}</strong>
+                    ${item.season ? `<span style="color:var(--muted); font-size:11px;"> (S${item.season} E${item.episode_num})</span>` : ''}
+                </div>
+                ${actionBtn}
             </div>
-            <button onclick="${state.mode === 'vod' ? `addVod('${item.stream_id}', '${item.name.replace(/'/g,"")}', '${item.container_extension}')` : `loadEpisodes('${item.series_id}', '${item.name.replace(/'/g,"")}')`}" style="width:auto; padding:5px 15px;" class="primary">+</button>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
-// --- KUYRUK VE İNDİRME ---
+// --- KUYRUK İŞLEMLERİ ---
 window.addVod = (id, name, ext) => {
     const host = $('host').value.replace(/\/+$/, "");
     const url = `${host}/movie/${$('user').value}/${$('pass').value}/${id}.${ext || 'mp4'}`;
@@ -154,83 +200,115 @@ window.addVod = (id, name, ext) => {
     renderQueue();
 };
 
-window.loadEpisodes = async (sId, sName) => {
-    const info = await api('get_series_info', `&series_id=${sId}`);
+window.addEpisode = (id, title, ext, season, epNum) => {
     const host = $('host').value.replace(/\/+$/, "");
-    
-    Object.keys(info.episodes).forEach(season => {
-        info.episodes[season].forEach(ep => {
-            const fileName = `${sName}_S${season.padStart(2,'0')}E${String(ep.episode_num).padStart(2,'0')}.${ep.container_extension}`;
-            const url = `${host}/series/${$('user').value}/${$('pass').value}/${ep.id}.${ep.container_extension}`;
-            state.queue.push({ name: fileName, url, status: 'Bekliyor' });
-        });
-    });
+    const fileName = `${state.activeSeriesName} - S${String(season).padStart(2,'0')}E${String(epNum).padStart(2,'0')}.${ext || 'mp4'}`;
+    const url = `${host}/series/${$('user').value}/${$('pass').value}/${id}.${ext || 'mp4'}`;
+    state.queue.push({ name: fileName, url, status: 'Bekliyor' });
     renderQueue();
-    alert("Dizi bölümleri kuyruğa eklendi!");
+};
+
+window.loadEpisodes = async (sId, sName) => {
+    try {
+        const info = await api('get_series_info', `&series_id=${sId}`);
+        state.activeSeriesName = sName;
+        state.episodes = [];
+        
+        Object.keys(info.episodes).forEach(seasonNum => {
+            info.episodes[seasonNum].forEach(ep => {
+                state.episodes.push({ ...ep, season: seasonNum });
+            });
+        });
+        
+        $('tabEps').style.display = 'block';
+        setMode('episodes');
+    } catch (e) {
+        alert("Bölümler yüklenemedi.");
+    }
 };
 
 function renderQueue() {
+    $('qCount').innerText = state.queue.length;
     $('queueList').innerHTML = state.queue.map((item, i) => `
         <div class="q-item">
-            <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.name}</div>
-            <span class="status-tag">${item.status}</span>
-            <div class="progress-container"><div class="progress-bar" id="pb-${i}"></div></div>
+            <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${item.name}">${item.name}</div>
+            <span class="status-tag" id="st-${i}">${item.status}</span>
+            <div class="progress-container" id="pc-${i}"><div class="progress-bar" id="pb-${i}"></div></div>
         </div>
     `).reverse().join('');
 }
 
-// --- ANA İNDİRME MOTORU (Sıralı ve Akıllı İsimlendirme) ---
+// --- ANA İNDİRME MOTORU (Sıralı & Dosya Sistemi) ---
 $('btnRunNow').onclick = async () => {
     if (state.running) return;
-    if (!('showDirectoryPicker' in window)) return alert("Lütfen Chrome veya Edge kullanın!");
+    if (state.queue.filter(x => x.status === 'Bekliyor').length === 0) return alert("Kuyrukta bekleyen dosya yok!");
+    if (!('showDirectoryPicker' in window)) return alert("Tarayıcınız bu özelliği desteklemiyor. Lütfen Chrome veya Edge kullanın.");
 
     try {
         const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
         state.running = true;
-        
-        // Kuyruğu baştan sona tara
+        $('btnRunNow').innerText = "İndirme Devam Ediyor...";
+        $('btnRunNow').classList.replace('success', 'primary');
+
+        // Kuyruğu işle (Sırayla)
         for (let i = 0; i < state.queue.length; i++) {
             const item = state.queue[i];
             if (item.status !== 'Bekliyor') continue;
 
             const pb = document.getElementById(`pb-${i}`);
-            if(pb) pb.parentElement.style.display = 'block';
-            item.status = "İndiriliyor...";
-            renderQueue();
+            const pc = document.getElementById(`pc-${i}`);
+            const st = document.getElementById(`st-${i}`);
+
+            if(pc) pc.style.display = 'block';
+            if(st) st.innerText = "Bağlanıyor...";
 
             try {
                 const res = await fetch(item.url);
                 const reader = res.body.getReader();
                 const total = +res.headers.get('Content-Length');
                 
-                const fileHandle = await dirHandle.getFileHandle(item.name.replace(/[/\\?%*:|"<>]/g, '-'), { create: true });
+                // Güvenli dosya adı oluştur
+                const safeName = item.name.replace(/[/\\?%*:|"<>]/g, '-');
+                const fileHandle = await dirHandle.getFileHandle(safeName, { create: true });
                 const writable = await fileHandle.createWritable();
 
                 let loaded = 0;
                 while(true) {
                     const {done, value} = await reader.read();
                     if (done) break;
+                    
                     await writable.write(value);
                     loaded += value.length;
+                    
                     if (total && pb) {
                         const pct = Math.round((loaded / total) * 100);
                         pb.style.width = pct + '%';
+                        st.innerText = `%${pct} indirildi (${(loaded/1024/1024).toFixed(1)} MB)`;
                     }
                 }
                 await writable.close();
                 item.status = "TAMAMLANDI";
+                if(st) st.innerText = "TAMAMLANDI";
+                if(st) st.style.color = "var(--ok)";
             } catch (err) {
                 item.status = "Hata!";
+                if(st) st.innerText = "Hata: Sunucuya erişilemedi.";
+                if(st) st.style.color = "var(--danger)";
             }
-            renderQueue();
         }
+        
         state.running = false;
-        alert("Tüm indirmeler bitti!");
+        $('btnRunNow').innerText = "Klasör Seç & Kuyruğu Başlat";
+        $('btnRunNow').classList.replace('primary', 'success');
+        alert("Kuyruktaki tüm işlemler tamamlandı!");
     } catch (e) {
         console.error(e);
+        state.running = false;
+        $('btnRunNow').innerText = "Klasör Seç & Kuyruğu Başlat";
     }
 };
 
+// Event Listeners
 $('search').oninput = renderList;
 $('category').onchange = renderList;
 </script>
