@@ -30,7 +30,7 @@ GitHub Pages **HTTPS** (Güvenli) protokolü kullanır. Eğer IPTV sağlayıcın
 2. Kodda herhangi bir değişiklik yapmanıza gerek yoktur.
 3. GitHub Repository ayarlarından **Pages** sekmesine gidin.
 4. `Branch: main` seçip kaydedin.
-5. Size verilen linke (ör: `https://kullaniciadi.github.io/repo-adi`) gidin.
+5. Size verilen linke (ör: `[https://msimsek20.github.io/IPTV-downloader/]`) gidin.
 
 ## 📝 Kullanım
 
