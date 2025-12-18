@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Xstream Web Downloader</title>
+  <style>
+    :root { --bg:#0b0f14; --panel:#121926; --muted:#93a4bd; --text:#e7eefc; --accent:#7aa2ff; --danger:#ff6b6b; --warn:#ffd36b; --ok:#9cffb4; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background:var(--bg); color:var(--text); font-size:13px; }
+    
+    /* Layout */
+    .app-container { display:grid; grid-template-columns: 380px 1fr; gap:20px; padding:20px; max-width:1600px; margin:0 auto; height:100vh; }
+    .card { background:var(--panel); border:1px solid #22324a; border-radius:12px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,.3); }
+    .scroll-y { overflow-y:auto; flex:1; padding:15px; }
+    .header-p { padding:15px; border-bottom:1px solid #22324a; background:rgba(0,0,0,0.2); }
+    
+    /* Elements */
+    h1 { margin:0; font-size:16px; font-weight:600; color:var(--accent); }
+    label { display:block; font-size:11px; color:var(--muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px; }
+    input, select { width:100%; background:#0e1522; border:1px solid #22324a; color:var(--text); border-radius:6px; padding:8px; outline:none; transition:border 0.2s; }
+    input:focus, select:focus { border-color:var(--accent); }
+    
+    button { background:#1a273b; color:var(--text); border:1px solid #2a3c55; border-radius:6px; padding:8px 12px; cursor:pointer; font-size:12px; transition:all 0.2s; }
+    button:hover { background:#22324a; }
+    button:active { transform:translateY(1px); }
+    button.primary { background: var(--accent); color:#000; border:none; font-weight:600; }
+    button.primary:hover { opacity:0.9; }
+    button.danger { color:var(--danger); border-color:rgba(255,107,107,0.3); background:rgba(255,107,107,0.1); }
+    button.danger:hover { background:rgba(255,107,107,0.2); }
+    
+    /* Utilities */
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .mt-10 { margin-top:10px; }
+    .pill { padding:2px 8px; border-radius:4px; background:#0e1522; border:1px solid #22324a; font-size:11px; color:var(--muted); }
+    .pill b { color:var(--text); }
+    
+    /* List Items */
+    .item { padding:10px; border-bottom:1px solid #1d2a3d; }
+    .item:last-child { border-bottom:none; }
+    .item-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px; }
+    .item-name { font-weight:600; color:#fff; font-size:13px; line-height:1.4; }
+    .meta { font-size:11px; color:var(--muted); display:flex; gap:8px; flex-wrap:wrap; }
+    .meta code { background:#000; padding:1px 4px; border-radius:3px; color:var(--accent); font-family:monospace; }
+
+    /* Tabs */
+    .tabs { display:flex; gap:5px; background:#0e1522; padding:4px; border-radius:8px; border:1px solid #22324a; }
+    .tab { flex:1; text-align:center; padding:6px; border-radius:5px; cursor:pointer; font-size:12px; color:var(--muted); }
+    .tab.active { background:var(--accent); color:#0b0f14; font-weight:600; }
+
+    /* Status & Alerts */
+    .status-bar { font-size:11px; padding:10px; background:#080b0f; border-top:1px solid #22324a; display:flex; justify-content:space-between; }
+    .warn-box { background:rgba(255, 211, 107, 0.1); border:1px solid rgba(255, 211, 107, 0.3); color:var(--warn); padding:10px; border-radius:6px; font-size:11px; margin-bottom:10px; line-height:1.4; }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar { width:6px; height:6px; }
+    ::-webkit-scrollbar-thumb { background:#22324a; border-radius:3px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  
+  <aside class="card">
+    <div class="header-p">
+      <h1>Xstream Web Downloader</h1>
+      <div style="font-size:11px; color:var(--muted); margin-top:4px;">Github Pages Versiyonu</div>
+    </div>
+    
+    <div class="scroll-y">
+      <div class="warn-box" id="corsWarn">
+        <strong>ÖNEMLİ:</strong> Bu sayfa tarayıcı tabanlıdır. Bağlantı hatası alıyorsanız:<br>
+        1. Tarayıcınıza <b>"Allow CORS"</b> eklentisi kurun ve aktif edin.<br>
+        2. Eğer sağlayıcınız <b>HTTP</b> ise ve burası <b>HTTPS</b> ise çalışmaz. (Mixed Content).
+      </div>
+
+      <div class="grid2">
+        <div>
+          <label>Host (http://url:port)</label>
+          <input id="host" type="text" placeholder="http://iptv.com:8080" />
+        </div>
+        <div>
+          <label>Plan Saati</label>
+          <input id="planTime" type="time" value="03:00" />
+        </div>
+      </div>
+      <div class="grid2 mt-10">
+        <div>
+          <label>Kullanıcı Adı</label>
+          <input id="user" type="text" />
+        </div>
+        <div>
+          <label>Şifre</label>
+          <input id="pass" type="password" />
+        </div>
+      </div>
+
+      <div class="row mt-10">
+        <button id="btnConnect" class="primary" style="flex:1;">Bağlan & Yükle</button>
+        <button id="btnClear" class="danger">Sil</button>
+      </div>
+
+      <hr style="border:0; border-top:1px solid #22324a; margin:15px 0;">
+
+      <div class="row" style="justify-content:space-between; margin-bottom:10px;">
+        <label style="margin:0;">İndirme Kuyruğu (<span id="qCount">0</span>)</label>
+        <div class="row">
+          <button id="btnRunNow" style="padding:4px 8px; font-size:10px;">Şimdi Başlat</button>
+          <button id="btnExport" style="padding:4px 8px; font-size:10px;">Yedekle</button>
+          <button id="btnQClear" class="danger" style="padding:4px 8px; font-size:10px;">Temizle</button>
+        </div>
+      </div>
+
+      <div id="queueList" style="min-height:200px; border:1px solid #22324a; border-radius:6px; background:#0e1522; padding:5px;">
+        <div style="padding:10px; text-align:center; color:var(--muted); font-size:11px;">Kuyruk boş</div>
+      </div>
+      
+      <div class="mt-10">
+        <button id="btnArm" class="primary" style="width:100%;">Planı Aktif Et (Otomatik)</button>
+        <div style="text-align:center; font-size:10px; color:var(--muted); margin-top:5px;" id="nextRunInfo">Devre dışı</div>
+      </div>
+    </div>
+
+    <div class="status-bar" id="statusBar">
+      <span style="color:var(--muted)">Hazır</span>
+    </div>
+  </aside>
+
+  <main class="card">
+    <div class="header-p">
+      <div class="row" style="margin-bottom:10px;">
+        <div class="tabs" style="flex:1;">
+          <div class="tab active" id="tabVod">Filmler (VOD)</div>
+          <div class="tab" id="tabSer">Diziler</div>
+          <div class="tab" id="tabEp">Bölümler</div>
+        </div>
+      </div>
+      <div class="grid2">
+        <input id="search" type="text" placeholder="İçerik ara..." />
+        <select id="category"><option value="">Önce bağlantı kurun</option></select>
+      </div>
+    </div>
+
+    <div class="scroll-y" id="contentList">
+      <div style="text-align:center; padding:40px; color:var(--muted);">
+        Sol taraftan bilgileri girip "Bağlan" butonuna basın.
+      </div>
+    </div>
+    
+    <div class="status-bar">
+      <span>Görüntülenen: <b id="dispCount">0</b></span>
+      <button id="btnAddVisible" style="padding:2px 8px; font-size:10px;">Listelenenleri Kuyruğa Ekle</button>
+    </div>
+  </main>
+</div>
+
+<script>
+/**
+ * Xstream Codes Client - Github Pages Edition
+ * Logic: Fetch JSON -> Build Queue -> Trigger Browser Download
+ */
+
+// State
+const state = {
+  host: "", user: "", pass: "",
+  vods: [], series: [], episodes: [], 
+  catsVod: [], catsSer: [],
+  queue: [],
+  mode: "vod", // vod | series | episodes
+  activeSeriesId: null,
+  scheduler: null
+};
+
+// Elements
+const $ = id => document.getElementById(id);
+const els = {
+  host: $('host'), user: $('user'), pass: $('pass'), planTime: $('planTime'),
+  btnConnect: $('btnConnect'), btnClear: $('btnClear'),
+  list: $('contentList'), qList: $('queueList'), catSelect: $('category'), search: $('search'),
+  status: $('statusBar'), qCount: $('qCount'), dispCount: $('dispCount'),
+  nextRun: $('nextRunInfo')
+};
+
+// --- Storage & Init ---
+function loadSettings() {
+  const s = JSON.parse(localStorage.getItem('xs_settings') || '{}');
+  if(s.host) els.host.value = s.host;
+  if(s.user) els.user.value = s.user;
+  if(s.pass) els.pass.value = s.pass;
+  state.queue = JSON.parse(localStorage.getItem('xs_queue') || '[]');
+  renderQueue();
+}
+function saveSettings() {
+  localStorage.setItem('xs_settings', JSON.stringify({
+    host: els.host.value.trim(), user: els.user.value.trim(), pass: els.pass.value.trim()
+  }));
+}
+function saveQueue() {
+  localStorage.setItem('xs_queue', JSON.stringify(state.queue));
+  renderQueue();
+}
+
+// --- API Helpers ---
+const log = (msg, type="info") => {
+  const color = type==='err'?'var(--danger)': type==='ok'?'var(--ok)':'var(--text)';
+  els.status.innerHTML = `<span style="color:${color}">${msg}</span>`;
+  if(type==='err') console.error(msg);
+};
+
+const getBase = () => {
+  let h = els.host.value.trim().replace(/\/+$/, "");
+  if(!h.startsWith("http")) h = "http://" + h; // Default http
+  return `${h}/player_api.php?username=${els.user.value}&password=${els.pass.value}`;
+};
+
+async function fetchApi(action, params="") {
+  const url = `${getBase()}&action=${action}${params}`;
+  try {
+    const res = await fetch(url);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    throw new Error("Bağlantı hatası: CORS eklentisini kontrol edin. " + e.message);
+  }
+}
+
+// --- Actions ---
+$('btnConnect').onclick = async () => {
+  saveSettings();
+  log("Bağlanıyor...", "warn");
+  try {
+    // Parallel fetch for VOD and Series
+    const [vc, v, sc, s] = await Promise.all([
+      fetchApi('get_vod_categories'),
+      fetchApi('get_vod_streams'),
+      fetchApi('get_series_categories'),
+      fetchApi('get_series')
+    ]);
+
+    state.catsVod = vc || [];
+    state.vods = v || [];
+    state.catsSer = sc || [];
+    state.series = s || [];
+    
+    log(`Yüklendi: ${state.vods.length} Film, ${state.series.length} Dizi`, "ok");
+    setMode('vod');
+  } catch (e) {
+    log(e.message, "err");
+  }
+};
+
+$('btnClear').onclick = () => {
+  localStorage.removeItem('xs_settings');
+  location.reload();
+};
+
+// --- Rendering ---
+function setMode(m) {
+  state.mode = m;
+  $('tabVod').classList.toggle('active', m==='vod');
+  $('tabSer').classList.toggle('active', m==='series');
+  $('tabEp').classList.toggle('active', m==='episodes');
+  
+  // Update Categories
+  let cats = (m==='vod') ? state.catsVod : (m==='series') ? state.catsSer : [];
+  if(m === 'episodes') {
+    els.catSelect.innerHTML = `<option value="">Seçili Dizi ID: ${state.activeSeriesId}</option>`;
+  } else {
+    els.catSelect.innerHTML = `<option value="">Tüm Kategoriler</option>` + 
+      cats.map(c => `<option value="${c.category_id}">${c.category_name}</option>`).join('');
+  }
+  renderContent();
+}
+
+function renderContent() {
+  const term = els.search.value.toLocaleLowerCase('tr');
+  const cat = els.catSelect.value;
+  
+  let source = [];
+  if(state.mode === 'vod') source = state.vods;
+  else if(state.mode === 'series') source = state.series;
+  else source = state.episodes;
+
+  // Filter
+  const filtered = source.filter(item => {
+    const name = (item.name || item.title || "").toLocaleLowerCase('tr');
+    const cId = String(item.category_id || "");
+    const matchName = name.includes(term);
+    const matchCat = cat === "" || cId === cat;
+    return matchName && matchCat;
+  });
+
+  els.dispCount.innerText = filtered.length;
+
+  // Render HTML
+  els.list.innerHTML = filtered.slice(0, 500).map(item => {
+    if(state.mode === 'vod') {
+      return `
+        <div class="item">
+          <div class="item-head">
+            <div class="item-name">${item.name}</div>
+            <button class="primary" onclick="addQ('${item.stream_id}', 'vod', '${esc(item.name)}', '${item.container_extension}')">+</button>
+          </div>
+          <div class="meta"><code>VOD</code> <span>${item.rating || ''}</span></div>
+        </div>`;
+    } else if(state.mode === 'series') {
+      return `
+        <div class="item">
+          <div class="item-head">
+            <div class="item-name">${item.name}</div>
+            <button onclick="loadEpisodes(${item.series_id})">Bölümleri Aç</button>
+          </div>
+          <div class="meta"><code>SERIES</code> <span>Sezon yoklanacak</span></div>
+        </div>`;
+    } else {
+      // Episode
+      return `
+        <div class="item">
+          <div class="item-head">
+            <div class="item-name">${item.title} (S${item.season} E${item.episode_num})</div>
+            <button class="primary" onclick="addQ('${item.id}', 'episode', '${esc(item.title)}', '${item.container_extension}')">+</button>
+          </div>
+          <div class="meta"><code>EP</code> <span>${item.container_extension}</span></div>
+        </div>`;
+    }
+  }).join('');
+}
+
+// --- Specific Logic ---
+window.loadEpisodes = async (sid) => {
+  log("Dizi detayları çekiliyor...", "warn");
+  try {
+    const data = await fetchApi('get_series_info', `&series_id=${sid}`);
+    // Flatten episodes
+    let allEps = [];
+    const seasons = data.episodes || {};
+    Object.keys(seasons).forEach(sKey => {
+      seasons[sKey].forEach(ep => {
+        allEps.push({...ep, season: sKey, series_id: sid});
+      });
+    });
+    
+    state.episodes = allEps;
+    state.activeSeriesId = sid;
+    setMode('episodes');
+    log(`Dizi açıldı: ${allEps.length} bölüm`, "ok");
+  } catch (e) {
+    log("Dizi hatası: " + e.message, "err");
+  }
+};
+
+window.esc = (s) => (s||"").replace(/'/g, "\\'");
+
+// --- Queue System ---
+window.addQ = (id, type, title, ext) => {
+  const host = els.host.value.trim().replace(/\/+$/, ""); // user input host
+  const u = els.user.value;
+  const p = els.pass.value;
+  const extension = ext || 'mp4';
+  
+  // URL Construct
+  let url = "";
+  if(type === 'vod') url = `${host}/movie/${u}/${p}/${id}.${extension}`;
+  else url = `${host}/series/${u}/${p}/${id}.${extension}`; // Episodes are usually under /series/
+
+  state.queue.push({
+    uuid: Date.now() + Math.random(),
+    title: title,
+    url: url,
+    status: 'pending',
+    added: new Date().toLocaleTimeString()
+  });
+  saveQueue();
+  log(`${title} kuyruğa eklendi.`, "ok");
+};
+
+function renderQueue() {
+  els.qCount.innerText = state.queue.length;
+  if(state.queue.length === 0) {
+    els.qList.innerHTML = `<div style="padding:10px;text-align:center;color:var(--muted)">Boş</div>`;
+    return;
+  }
+  
+  els.qList.innerHTML = state.queue.map((q, idx) => `
+    <div class="item" style="border-color:#333; background:${q.status==='done'?'rgba(0,255,0,0.1)':''}">
+      <div class="item-head">
+        <div style="font-size:12px; color:${q.status==='done'?'var(--ok)':'#fff'}">${q.title}</div>
+        <button class="danger" style="padding:2px 6px;" onclick="remQ(${idx})">x</button>
+      </div>
+      <div class="meta">
+        <span>${q.status}</span> 
+        ${q.status==='pending' ? `<a href="${q.url}" style="color:var(--accent)">Link</a>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+window.remQ = (idx) => {
+  state.queue.splice(idx, 1);
+  saveQueue();
+};
+$('btnQClear').onclick = () => { state.queue = []; saveQueue(); };
+
+// --- Downloading / Scheduling ---
+async function downloadItem(qItem) {
+  // Trigger browser download
+  const a = document.createElement('a');
+  a.href = qItem.url;
+  a.target = '_blank';
+  // Note: 'download' attribute only works for same-origin, but we try anyway
+  a.download = qItem.title.replace(/[^a-z0-9]/gi, '_'); 
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  qItem.status = 'done';
+  saveQueue();
+}
+
+$('btnRunNow').onclick = async () => {
+  log("Kuyruk başlatıldı (Pop-up izni gerekebilir)", "warn");
+  for (const item of state.queue) {
+    if(item.status === 'pending') {
+      await downloadItem(item);
+      // Wait 2 seconds to not choke browser
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+  log("Kuyruk tamamlandı.", "ok");
+};
+
+// Scheduler
+let armTimer = null;
+$('btnArm').onclick = () => {
+  if(armTimer) {
+    clearInterval(armTimer);
+    armTimer = null;
+    els.nextRun.innerText = "Devre dışı";
+    $('btnArm').classList.remove('danger');
+    $('btnArm').innerText = "Planı Aktif Et";
+    return;
+  }
+  
+  $('btnArm').classList.add('danger');
+  $('btnArm').innerText = "Plan Aktif (Durdur)";
+  els.nextRun.innerText = `Her gün ${els.planTime.value}'da çalışacak.`;
+  
+  armTimer = setInterval(() => {
+    const now = new Date();
+    const currentHM = now.toTimeString().substring(0,5);
+    if(currentHM === els.planTime.value) {
+      // Avoid multi-trigger in the same minute
+      if(now.getSeconds() < 5) { 
+        $('btnRunNow').click();
+      }
+    }
+  }, 3000); // Check every 3s
+};
+
+$('tabVod').onclick = () => setMode('vod');
+$('tabSer').onclick = () => setMode('series');
+$('tabEp').onclick = () => setMode('episodes');
+els.catSelect.onchange = renderContent;
+els.search.oninput = renderContent;
+
+// On Load
+loadSettings();
+
+</script>
+</body>
+</html>
